@@ -21,6 +21,7 @@ const el={file:gid('fileInput'),wave:gid('waveCanvas'),audio:gid('audioPlayer'),
 const ac=new (window.AudioContext||window.webkitAudioContext)();
 let obuf=null,ourl=null,blob=null,wmono=null,wraf=null,frames=[],stemUrls=[],analyzing=false,ntrUrl=null,trBuildTimer=null;
 let waveCache=null,waveCacheLen=0,lastWaveUiTs=0;
+let ntrMediaNode=null,ntrGainNode=null;
 const pb={play:false,src:null,idx:0,endSec:0,timer:null,p1o:null,p1g:null,p2o:null,p2g:null,tro:null,trg:null,ns:null,nf:null,ng:null,dg:null,mg:null};
 function gid(id){return document.getElementById(id)}
 function clamp(v,a,b){return Math.min(b,Math.max(a,v))}
@@ -28,7 +29,8 @@ function ttxt(s){if(!Number.isFinite(s)||s<0)return'00:00.0';const m=Math.floor(
 function setS(t){el.st.textContent=t} function setNS(t){el.nss.textContent=t}
 function cst(){return{p1:el.cp1.checked,p2:el.cp2.checked,tri:el.ctri.checked,noi:el.cnoi.checked,dpc:el.cdpc.checked}}
 function ctext(c){return `P1:${c.p1?'ON':'OFF'} P2:${c.p2?'ON':'OFF'} TRI:${c.tri?'ON':'OFF'} NOI:${c.noi?'ON':'OFF'} DPCM:${c.dpc?'ON':'OFF'}`}
-function applyMix(){const rv=Number(el.mix.value),o=clamp(Number.isFinite(rv)?rv/100:0,0,1);el.ntr.volume=o;el.mixLabel.textContent=`${Math.round(o*100)}%`}
+function ensureNtrAudioRoute(){if(ntrMediaNode&&ntrGainNode)return;try{ntrMediaNode=ac.createMediaElementSource(el.ntr);ntrGainNode=ac.createGain();ntrMediaNode.connect(ntrGainNode).connect(ac.destination)}catch(_){/* already connected or unsupported */}}
+function applyMix(){const rv=Number(el.mix.value),o=clamp(Number.isFinite(rv)?rv/100:0,0,1);ensureNtrAudioRoute();if(ntrGainNode)ntrGainNode.gain.value=o;else el.ntr.volume=o;el.mixLabel.textContent=`${Math.round(o*100)}%`}
 function syncConvSecUi(){const mx=Number(el.csec.max)||0,v=clamp(Number(el.csec.value)||0,0,mx||0);el.csec.value=String(v);el.csecLabel.textContent=`${ttxt(v)} / ${ttxt(mx)}`}
 function endSec(){const ad=Number.isFinite(el.audio.duration)?el.audio.duration:0,cv=Number(el.csec.value)||0;return clamp(cv,0,ad||cv||0)}
 function clearNtr(){if(ntrUrl){URL.revokeObjectURL(ntrUrl);ntrUrl=null}el.ntr.removeAttribute('src');el.ntr.load()}
@@ -87,7 +89,7 @@ el.audio.addEventListener('seeked',()=>{waveSync();nesSync()});
 el.audio.addEventListener('play',()=>{lastWaveUiTs=0;waveFollow();startNesSync(el.audio,'再生中: 上側バー（元音源）に同期してNES再生しています。')});
 for(const ev of ['pause','ended'])el.audio.addEventListener(ev,()=>{stopNes();waveSync();nesSync();if(frames.length)setNS('停止中。シーク位置から再開できます。')});
 for(const ev of ['loadedmetadata','timeupdate','seeked'])el.ntr.addEventListener(ev,()=>nesSync(el.ntr));
-el.ntr.addEventListener('play',()=>startNesSync(el.ntr,'再生中: 下側バー（元音源+解析結果）で再生しています。'));
+el.ntr.addEventListener('play',()=>{ac.resume().catch(()=>{});ensureNtrAudioRoute();applyMix();startNesSync(el.ntr,'再生中: 下側バー（元音源+解析結果）で再生しています。')});
 for(const ev of ['pause','ended'])el.ntr.addEventListener(ev,()=>{stopNes();nesSync(el.ntr);if(frames.length)setNS('停止中。シーク位置から再開できます。')});
 for(const k of ['cp1','cp2','ctri','cnoi','cdpc'])el[k].addEventListener('change',()=>{if(frames.length)setNS(`ch changed: ${ctext(cst())}`)});
 el.mix.addEventListener('input',applyMix);
