@@ -55,6 +55,9 @@
 
 `index.html` をブラウザで開くだけで動作します。
 
+公開版は以下でも利用できます。  
+https://egg2code.github.io/NES-Music-Converter/
+
 ## GitHub Pages 公開
 
 1. リポジトリを GitHub に push
